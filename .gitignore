@@ -37,6 +37,7 @@
 **.vcxproj.user
 **.user
 **.log
+.vscode/
 
 # Art
 Art/
