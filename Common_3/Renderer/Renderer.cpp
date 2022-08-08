@@ -190,7 +190,7 @@ DECLARE_INTERNAL_RENDERER_FUNCTION(void, removeVirtualTexture, Renderer* pRender
 /************************************************************************/
 // Internal initialization settings
 /************************************************************************/
-RendererApi gSelectedRendererApi;
+RendererApi gSelectedRendererApi = RENDERER_API_VULKAN;
 bool        gD3D11Unsupported = false; 
 bool        gGLESUnsupported = false; 
 
