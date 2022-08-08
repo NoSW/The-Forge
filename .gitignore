@@ -50,6 +50,7 @@ Art/
 # Automatically Generated Files
 **/Renderer/IRendererDLL.h
 **/Renderer/Renderer.cpp
+__pycache__/
 
 # Obj folders
 **/obj/
