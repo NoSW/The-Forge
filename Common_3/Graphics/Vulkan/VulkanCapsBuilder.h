@@ -35,7 +35,7 @@ inline void vk_utils_caps_builder(Renderer* pRenderer)
 	for (uint32_t i = 0; i < TinyImageFormat_Count;++i) {
 		VkFormatProperties formatSupport;
 		VkFormat fmt = (VkFormat) TinyImageFormat_ToVkFormat((TinyImageFormat)i);
-		if(fmt == VK_FORMAT_UNDEFINED) continue;
+		if(fmt == VK_FORMAT_UNDEFINED || fmt >= 1'000'000'000) continue;
 
 		vkGetPhysicalDeviceFormatProperties(pRenderer->mVulkan.pVkActiveGPU, fmt, &formatSupport);
 		pRenderer->pCapBits->canShaderReadFrom[i] =
