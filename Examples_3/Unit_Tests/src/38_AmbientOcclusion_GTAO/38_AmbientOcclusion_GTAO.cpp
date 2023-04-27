@@ -125,6 +125,7 @@ Shader*        pFillFSQShader = NULL;
 Pipeline*      pPipelineFSQ = NULL;
 RootSignature* pRootSigFSQ = NULL;
 DescriptorSet* pDescriptorSetFSQ[4] = { NULL };
+DescriptorSet* pDescriptorSetFSQStaticSampler { NULL };
 
 Shader*        pPrefilterDepthsShader = NULL;
 Pipeline*      pPipelinePrefilterDepths = NULL;
@@ -949,6 +950,7 @@ public:
 		cmdSetScissor(cmd, 0, 0, pRenderTarget->mWidth, pRenderTarget->mHeight);
 
 		cmdBindPipeline(cmd, pPipelineFSQ);
+        cmdBindDescriptorSet(cmd, 0, pDescriptorSetFSQStaticSampler);
 		if (bEnableTemporalAA)
 			cmdBindDescriptorSet(cmd, 0, pDescriptorSetFSQ[gCurrentTemporalAARenderTarget]);
 		else
@@ -1257,6 +1259,8 @@ public:
 		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetVisibilityBuffer[2]);
 
 		// FSQ
+		setDesc = { pRootSigFSQ, DESCRIPTOR_UPDATE_FREQ_NONE, 1 }; // AO term
+		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetFSQStaticSampler);
 		setDesc = { pRootSigFSQ, DESCRIPTOR_UPDATE_FREQ_PER_FRAME, 1 }; // AO term
 		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetFSQ[0]);
 		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetFSQ[1]);
@@ -1633,6 +1637,7 @@ public:
 		removeDescriptorSet(pRenderer, pDescriptorSetVisibilityBuffer[2]);
 		removeDescriptorSet(pRenderer, pDescriptorSetPrefilterDepths[0]);
 		removeDescriptorSet(pRenderer, pDescriptorSetPrefilterDepths[1]);
+		removeDescriptorSet(pRenderer, pDescriptorSetFSQStaticSampler);
 		removeDescriptorSet(pRenderer, pDescriptorSetFSQ[0]);
 		removeDescriptorSet(pRenderer, pDescriptorSetFSQ[1]);
 		removeDescriptorSet(pRenderer, pDescriptorSetFSQ[2]);

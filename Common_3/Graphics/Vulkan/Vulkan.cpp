@@ -3376,7 +3376,7 @@ void vk_initRenderer(const char* appName, const RendererDesc* pDesc, Renderer** 
 
 	// Empty descriptor set for filling in gaps when example: set 1 is used but set 0 is not used in the shader.
 	// We still need to bind empty descriptor set here to keep some drivers happy
-	VkDescriptorPoolSize descriptorPoolSizes[1] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1 } };
+	VkDescriptorPoolSize descriptorPoolSizes[1] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1 } }; // since vulkan sepc not allow to creat true empty descriptor pool, so we create a mimimal one
 	add_descriptor_pool(pRenderer, 1, 0, descriptorPoolSizes, 1, &pRenderer->mVulkan.pEmptyDescriptorPool);
 	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
 	VkDescriptorSet* emptySets[] = { &pRenderer->mVulkan.pEmptyDescriptorSet };
@@ -5085,11 +5085,15 @@ void vk_addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, De
 
 	uint32_t totalSize = sizeof(DescriptorSet);
 
-	if (VK_NULL_HANDLE != pRootSignature->mVulkan.mVkDescriptorSetLayouts[updateFreq])
+	if (VK_NULL_HANDLE == pRootSignature->mVulkan.mVkDescriptorSetLayouts[updateFreq])
 	{
-		totalSize += pDesc->mMaxSets * sizeof(VkDescriptorSet);
+		LOGF(LogLevel::eERROR, "NULL Descriptor Set Layout for update frequency %u. Cannot allocate descriptor set", (uint32_t)updateFreq);
+		ASSERT(false && "NULL Descriptor Set Layout for update frequency. Cannot allocate descriptor set");
+		return;
 	}
 
+
+	totalSize += pDesc->mMaxSets * sizeof(VkDescriptorSet);
 	totalSize += pDesc->mMaxSets * dynamicOffsetCount * sizeof(DynamicUniformData);
 
 	DescriptorSet* pDescriptorSet = (DescriptorSet*)tf_calloc_memalign(1, alignof(DescriptorSet), totalSize);
@@ -5104,7 +5108,6 @@ void vk_addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, De
 	pDescriptorSet->mVulkan.pHandles = (VkDescriptorSet*)pMem;
 	pMem += pDesc->mMaxSets * sizeof(VkDescriptorSet);
 
-	if (VK_NULL_HANDLE != pRootSignature->mVulkan.mVkDescriptorSetLayouts[updateFreq])
 	{
 		VkDescriptorSetLayout* pLayouts = (VkDescriptorSetLayout*)alloca(pDesc->mMaxSets * sizeof(VkDescriptorSetLayout));
 		VkDescriptorSet**      pHandles = (VkDescriptorSet**)alloca(pDesc->mMaxSets * sizeof(VkDescriptorSet*));
@@ -5121,7 +5124,7 @@ void vk_addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, De
 			poolSizes[i] = pRootSignature->mVulkan.mPoolSizes[updateFreq][i];
 			poolSizes[i].descriptorCount *= pDesc->mMaxSets;
 		}
-		add_descriptor_pool(pRenderer, pDesc->mMaxSets, 0,
+		add_descriptor_pool(pRenderer, pDesc->mMaxSets, 0, // never create a pool that contains immutable sampler
 			poolSizes, pRootSignature->mVulkan.mPoolSizeCount[updateFreq],
 			&pDescriptorSet->mVulkan.pDescriptorPool);
 		consume_descriptor_sets(pRenderer->mVulkan.pVkDevice, pDescriptorSet->mVulkan.pDescriptorPool, pLayouts, pDesc->mMaxSets, pHandles);
@@ -5215,11 +5218,6 @@ void vk_addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, De
 				}
 			}
 		}
-	}
-	else
-	{
-		LOGF(LogLevel::eERROR, "NULL Descriptor Set Layout for update frequency %u. Cannot allocate descriptor set", (uint32_t)updateFreq);
-		ASSERT(false && "NULL Descriptor Set Layout for update frequency. Cannot allocate descriptor set");
 	}
 
 	if (pDescriptorSet->mVulkan.mDynamicOffsetCount)
@@ -5594,11 +5592,11 @@ void vk_cmdBindDescriptorSet(Cmd* pCmd, uint32_t index, DescriptorSet* pDescript
 		// Example: If shader uses only set 2, we still have to bind empty sets for set=0 and set=1
 		for (uint32_t setIndex = 0; setIndex < DESCRIPTOR_UPDATE_FREQ_COUNT; ++setIndex)
 		{
-			if (pRootSignature->mVulkan.pEmptyDescriptorSet[setIndex] != VK_NULL_HANDLE)
+			if (pRootSignature->mVulkan.mVkDescriptorSetLayouts[setIndex] == VK_NULL_HANDLE) // current set is not used, we will use default one from pRenderer instead
 			{
 				vkCmdBindDescriptorSets(
 					pCmd->mVulkan.pVkCmdBuf, gPipelineBindPoint[pRootSignature->mPipelineType], pRootSignature->mVulkan.pPipelineLayout,
-					setIndex, 1, &pRootSignature->mVulkan.pEmptyDescriptorSet[setIndex], 0, NULL);
+					setIndex, 1, &pCmd->pRenderer->mVulkan.pEmptyDescriptorSet, 0, NULL);
 			}
 		}
 	}
@@ -6296,7 +6294,7 @@ void vk_addRootSignature(Renderer* pRenderer, const RootSignatureDesc* pRootSign
 			}
 			else
 			{
-				pRootSignature->mVulkan.mVkDescriptorSetLayouts[layoutIndex] = pRenderer->mVulkan.pEmptyDescriptorSetLayout;
+				pRootSignature->mVulkan.mVkDescriptorSetLayouts[layoutIndex] = VK_NULL_HANDLE;
 			}
 		}
 
@@ -6340,6 +6338,8 @@ void vk_addRootSignature(Renderer* pRenderer, const RootSignatureDesc* pRootSign
 		if (pRootSignature->mVulkan.mVkDescriptorSetLayouts[i])
 		{
 			descriptorSetLayouts[descriptorSetLayoutCount++] = pRootSignature->mVulkan.mVkDescriptorSetLayouts[i];
+		} else {
+			descriptorSetLayouts[descriptorSetLayoutCount++] = pRenderer->mVulkan.pEmptyDescriptorSetLayout;
 		}
 	}
 
@@ -6353,6 +6353,8 @@ void vk_addRootSignature(Renderer* pRenderer, const RootSignatureDesc* pRootSign
 	add_info.pPushConstantRanges = pushConstants;
 	CHECK_VKRESULT(vkCreatePipelineLayout(
 		pRenderer->mVulkan.pVkDevice, &add_info, &gVkAllocationCallbacks, &(pRootSignature->mVulkan.pPipelineLayout)));
+
+#if 0
 	/************************************************************************/
 	// Update templates
 	/************************************************************************/
@@ -6360,8 +6362,13 @@ void vk_addRootSignature(Renderer* pRenderer, const RootSignatureDesc* pRootSign
 	{
 		const UpdateFrequencyLayoutInfo& layout = layouts[setIndex];
 
-		if (!arrlen(layout.mDescriptors) && pRootSignature->mVulkan.mVkDescriptorSetLayouts[setIndex] != VK_NULL_HANDLE)
+		if (!arrlen(layout.mDescriptors) && pRootSignature->mVulkan.mVkDescriptorSetLayouts[setIndex] != VK_NULL_HANDLE) // only have Immutable Samplers;
 		{
+			for (uint32_t i = 0; i < arrlen(layout.mBindings); ++i)
+			{
+                assert(layout.mBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER || layout.mBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+				assert(layout.mBindings[i].pImmutableSamplers);
+			}
 			pRootSignature->mVulkan.pEmptyDescriptorSet[setIndex] = pRenderer->mVulkan.pEmptyDescriptorSet;
 			if (pRootSignature->mVulkan.mVkDescriptorSetLayouts[setIndex] != pRenderer->mVulkan.pEmptyDescriptorSetLayout)
 			{
@@ -6375,6 +6382,7 @@ void vk_addRootSignature(Renderer* pRenderer, const RootSignatureDesc* pRootSign
 			}
 		}
 	}
+#endif
 
 	addRootSignatureDependencies(pRootSignature, pRootSignatureDesc);
 
@@ -6395,16 +6403,16 @@ void vk_removeRootSignature(Renderer* pRenderer, RootSignature* pRootSignature)
 
 	for (uint32_t i = 0; i < DESCRIPTOR_UPDATE_FREQ_COUNT; ++i)
 	{
-		if (pRootSignature->mVulkan.mVkDescriptorSetLayouts[i] != pRenderer->mVulkan.pEmptyDescriptorSetLayout)
+		if (pRootSignature->mVulkan.mVkDescriptorSetLayouts[i] != VK_NULL_HANDLE)
 		{
 			vkDestroyDescriptorSetLayout(
 				pRenderer->mVulkan.pVkDevice, pRootSignature->mVulkan.mVkDescriptorSetLayouts[i], &gVkAllocationCallbacks);
 		}
-		if (VK_NULL_HANDLE != pRootSignature->mVulkan.pEmptyDescriptorPool[i])
-		{
-			vkDestroyDescriptorPool(
-				pRenderer->mVulkan.pVkDevice, pRootSignature->mVulkan.pEmptyDescriptorPool[i], &gVkAllocationCallbacks);
-		}
+		// if (VK_NULL_HANDLE != pRootSignature->mVulkan.pEmptyDescriptorPool[i])
+		// {
+		// 	vkDestroyDescriptorPool(
+		// 		pRenderer->mVulkan.pVkDevice, pRootSignature->mVulkan.pEmptyDescriptorPool[i], &gVkAllocationCallbacks);
+		// }
 	}
 
 	shfree(pRootSignature->pDescriptorNameToIndexMap);

@@ -465,6 +465,7 @@ Shader*           pGodRayPass = nullptr;
 Pipeline*         pPipelineGodRayPass = nullptr;
 RootSignature*    pRootSigGodRayPass = nullptr;
 DescriptorSet*    pDescriptorSetGodRayPass = NULL;
+DescriptorSet*    pDescriptorSetGodRayPassStaticSampler = NULL;
 uint32_t          gGodRayRootConstantIndex = 0;
 Geometry*         pSun = NULL;
 /************************************************************************/
@@ -1915,6 +1916,8 @@ public:
 		setDesc = { pRootSigSunPass, DESCRIPTOR_UPDATE_FREQ_PER_FRAME, gImageCount };
 		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetSunPass);
 		// God Ray
+        setDesc = { pRootSigGodRayPass, DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetGodRayPassStaticSampler);
 		setDesc = { pRootSigGodRayPass, DESCRIPTOR_UPDATE_FREQ_PER_DRAW, 3 };
 		addDescriptorSet(pRenderer, &setDesc, &pDescriptorSetGodRayPass);
 		// Curve Conversion
@@ -1942,6 +1945,7 @@ public:
 		removeDescriptorSet(pRenderer, pDescriptorSetResolve);
 		removeDescriptorSet(pRenderer, pDescriptorSetCurveConversionPass);
 		removeDescriptorSet(pRenderer, pDescriptorSetGodRayPass);
+		removeDescriptorSet(pRenderer, pDescriptorSetGodRayPassStaticSampler);
 		removeDescriptorSet(pRenderer, pDescriptorSetSunPass);
 		removeDescriptorSet(pRenderer, pDescriptorSetDeferredShadePointLight[0]);
 		removeDescriptorSet(pRenderer, pDescriptorSetDeferredShadePointLight[1]);
@@ -5255,6 +5259,7 @@ public:
 
 		cmdBindPipeline(cmd, pPipelineGodRayPass);
 		cmdBindPushConstants(cmd, pRootSigGodRayPass, gGodRayRootConstantIndex, &gPerFrame[frameIdx].gGodrayInfo);
+		cmdBindDescriptorSet(cmd, 0, pDescriptorSetGodRayPassStaticSampler);
 		cmdBindDescriptorSet(cmd, 0, pDescriptorSetGodRayPass);
 		cmdDraw(cmd, 3, 0);
 

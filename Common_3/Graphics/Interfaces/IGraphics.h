@@ -1581,8 +1581,6 @@ typedef struct DEFINE_ALIGNED(RootSignature, 64)
 			uint8_t                     mVkDynamicDescriptorCounts[DESCRIPTOR_UPDATE_FREQ_COUNT];
 			VkDescriptorPoolSize        mPoolSizes[DESCRIPTOR_UPDATE_FREQ_COUNT][MAX_DESCRIPTOR_POOL_SIZE_ARRAY_COUNT];
 			uint8_t                     mPoolSizeCount[DESCRIPTOR_UPDATE_FREQ_COUNT];
-			VkDescriptorPool            pEmptyDescriptorPool[DESCRIPTOR_UPDATE_FREQ_COUNT];
-			VkDescriptorSet             pEmptyDescriptorSet[DESCRIPTOR_UPDATE_FREQ_COUNT];
 		} mVulkan;
 #endif
 #if defined(METAL)
@@ -1733,9 +1731,9 @@ typedef struct DEFINE_ALIGNED(DescriptorSet, 64)
 			const RootSignature*         pRootSignature;
 			struct DynamicUniformData*   pDynamicUniformData;
 			VkDescriptorPool             pDescriptorPool;
-			uint32_t                     mMaxSets;
+			uint32_t                     mMaxSets; // number of array pHandles
 			uint8_t                      mDynamicOffsetCount;
-			uint8_t                      mUpdateFrequency;
+			uint8_t                      mUpdateFrequency; // current set, e.g., UPDATE_FREQ_NONE => layout(set = 0)
 			uint8_t                      mNodeIndex;
 			uint8_t                      mPadA;
 		} mVulkan;
@@ -3188,7 +3186,7 @@ typedef struct CommandSignature
 
 typedef struct DescriptorSetDesc
 {
-	RootSignature*            pRootSignature;
+	RootSignature*            pRootSignature; // containing a certain number types of DescriptorSet, shoule contain current type of DescriptorSet
 	DescriptorUpdateFrequency mUpdateFrequency;
 	uint32_t                  mMaxSets;
 	uint32_t                  mNodeIndex;
